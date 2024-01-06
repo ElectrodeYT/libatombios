@@ -361,6 +361,24 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 		putVal(arg, dstIdx, attrByte.combineSaved(newVal, saved));
 	};
 
+	auto compareOpcode = [this, &consumeAttrByte, &consumeIdx, &consumeVal](OpcodeArgEncoding arg) {
+		AttrByte attrByte = consumeAttrByte();
+		uint32_t dstIdx = consumeIdx(arg);
+		uint32_t srcIdx = consumeIdx(attrByte.srcArg);
+
+		uint32_t saved = consumeVal(arg, attrByte, dstIdx);
+		uint32_t val = attrByte.swizleSrc(consumeVal(attrByte.srcArg, attrByte, srcIdx));
+		_flagEqual = attrByte.swizleDst(saved) == val;
+		_flagAbove = attrByte.swizleDst(saved) > val;
+		_flagBelow = attrByte.swizleDst(saved) < val;
+
+		// Keep the generic opcode logger happy
+		uint32_t newVal = attrByte.swizleDst(saved);
+		
+		LOG_OPCODE("COMPARE");
+		LOG_FLAGS();
+	};
+
 	while(ip < command->_bytecode.size()) {
 		uint8_t opcode = consumeByte();
 		switch(opcode) {
@@ -468,24 +486,24 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 			orOpcode(OpcodeArgEncoding::MC);
 			break;
 
-		/// OR
-		case Opcodes::TEST_FROM_REG:
-			testOpcode(OpcodeArgEncoding::Reg);
+		/// COMPARE
+		case Opcodes::COMPARE_FROM_REG:
+			compareOpcode(OpcodeArgEncoding::Reg);
 			break;
-		case Opcodes::TEST_FROM_PS:
-			testOpcode(OpcodeArgEncoding::ParameterSpace);
+		case Opcodes::COMPARE_FROM_PS:
+			compareOpcode(OpcodeArgEncoding::ParameterSpace);
 			break;
-		case Opcodes::TEST_FROM_WS:
-			testOpcode(OpcodeArgEncoding::WorkSpace);
+		case Opcodes::COMPARE_FROM_WS:
+			compareOpcode(OpcodeArgEncoding::WorkSpace);
 			break;
-		case Opcodes::TEST_FROM_FB:
-			testOpcode(OpcodeArgEncoding::FrameBuffer);
+		case Opcodes::COMPARE_FROM_FB:
+			compareOpcode(OpcodeArgEncoding::FrameBuffer);
 			break;
-		case Opcodes::TEST_FROM_PLL:
-			testOpcode(OpcodeArgEncoding::PLL);
+		case Opcodes::COMPARE_FROM_PLL:
+			compareOpcode(OpcodeArgEncoding::PLL);
 			break;
-		case Opcodes::TEST_FROM_MC:
-			testOpcode(OpcodeArgEncoding::MC);
+		case Opcodes::COMPARE_FROM_MC:
+			compareOpcode(OpcodeArgEncoding::MC);
 			break;
 
 		/// JUMP_*
@@ -509,6 +527,26 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 			break;
 		case Opcodes::JUMP_NOTEQUAL:
 			jumpOpcode(JumpArgEncoding::NotEqual);
+			break;
+
+		/// TEST
+		case Opcodes::TEST_FROM_REG:
+			testOpcode(OpcodeArgEncoding::Reg);
+			break;
+		case Opcodes::TEST_FROM_PS:
+			testOpcode(OpcodeArgEncoding::ParameterSpace);
+			break;
+		case Opcodes::TEST_FROM_WS:
+			testOpcode(OpcodeArgEncoding::WorkSpace);
+			break;
+		case Opcodes::TEST_FROM_FB:
+			testOpcode(OpcodeArgEncoding::FrameBuffer);
+			break;
+		case Opcodes::TEST_FROM_PLL:
+			testOpcode(OpcodeArgEncoding::PLL);
+			break;
+		case Opcodes::TEST_FROM_MC:
+			testOpcode(OpcodeArgEncoding::MC);
 			break;
 
 		/// CLEAR
