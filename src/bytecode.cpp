@@ -379,6 +379,43 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 		LOG_FLAGS();
 	};
 
+	auto shiftLeftOpcode = [&consumeAttrByte, &consumeByte, &consumeIdx, &consumeVal, &putVal](OpcodeArgEncoding arg) {
+		AttrByte attrByte = consumeAttrByte();
+		uint32_t dstIdx = consumeIdx(arg);
+		uint32_t saved = consumeVal(arg, attrByte, dstIdx);
+
+		uint32_t shift = consumeByte();
+		uint32_t newVal = attrByte.swizleDst(saved) << shift;
+
+		if(AtomBIOSDebugSettings::logOpcodes) {
+			libatombios_printf_dbg("opcode SHIFT_LEFT(%s[%02x] %s (savedVal: %x) << %i (newVal: %x)\n",
+				OpcodeArgEncodingToString(arg), dstIdx, SrcEncodingToString(attrByte.dstAlign),
+				saved, shift, newVal
+				);
+		}
+
+		putVal(arg, dstIdx, attrByte.combineSaved(newVal, saved));
+	};
+
+	auto shiftRightOpcode = [&consumeAttrByte, &consumeByte, &consumeIdx, &consumeVal, &putVal](OpcodeArgEncoding arg) {
+		AttrByte attrByte = consumeAttrByte();
+		uint32_t dstIdx = consumeIdx(arg);
+		uint32_t saved = consumeVal(arg, attrByte, dstIdx);
+
+		uint32_t shift = consumeByte();
+		uint32_t newVal = attrByte.swizleDst(saved) >> shift;
+
+		if(AtomBIOSDebugSettings::logOpcodes) {
+			libatombios_printf_dbg("opcode SHIFT_RIGHT(%s[%02x] %s (savedVal: %x) << %i (newVal: %x)\n",
+				OpcodeArgEncodingToString(arg), dstIdx, SrcEncodingToString(attrByte.dstAlign),
+				saved, shift, newVal
+				);
+		}
+
+		putVal(arg, dstIdx, attrByte.combineSaved(newVal, saved));
+	};
+
+
 	while(ip < command->_bytecode.size()) {
 		uint8_t opcode = consumeByte();
 		switch(opcode) {
@@ -484,6 +521,46 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 			break;
 		case Opcodes::OR_INTO_MC:
 			orOpcode(OpcodeArgEncoding::MC);
+			break;
+
+		/// SHIFT_LEFT
+		case Opcodes::SHIFT_LEFT_IN_REG:
+			shiftLeftOpcode(OpcodeArgEncoding::Reg);
+			break;
+		case Opcodes::SHIFT_LEFT_IN_PS:
+			shiftLeftOpcode(OpcodeArgEncoding::ParameterSpace);
+			break;
+		case Opcodes::SHIFT_LEFT_IN_WS:
+			shiftLeftOpcode(OpcodeArgEncoding::WorkSpace);
+			break;
+		case Opcodes::SHIFT_LEFT_IN_FB:
+			shiftLeftOpcode(OpcodeArgEncoding::FrameBuffer);
+			break;
+		case Opcodes::SHIFT_LEFT_IN_PLL:
+			shiftLeftOpcode(OpcodeArgEncoding::PLL);
+			break;
+		case Opcodes::SHIFT_LEFT_IN_MC:
+			shiftLeftOpcode(OpcodeArgEncoding::MC);
+			break;
+
+		/// SHIFT_RIGHT
+		case Opcodes::SHIFT_RIGHT_IN_REG:
+			shiftRightOpcode(OpcodeArgEncoding::Reg);
+			break;
+		case Opcodes::SHIFT_RIGHT_IN_PS:
+			shiftRightOpcode(OpcodeArgEncoding::ParameterSpace);
+			break;
+		case Opcodes::SHIFT_RIGHT_IN_WS:
+			shiftRightOpcode(OpcodeArgEncoding::WorkSpace);
+			break;
+		case Opcodes::SHIFT_RIGHT_IN_FB:
+			shiftRightOpcode(OpcodeArgEncoding::FrameBuffer);
+			break;
+		case Opcodes::SHIFT_RIGHT_IN_PLL:
+			shiftRightOpcode(OpcodeArgEncoding::PLL);
+			break;
+		case Opcodes::SHIFT_RIGHT_IN_MC:
+			shiftRightOpcode(OpcodeArgEncoding::MC);
 			break;
 
 		/// COMPARE
