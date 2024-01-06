@@ -101,5 +101,7 @@ int main(int argc, char** argv) {
 
 	AtomBios atomBios(data);
 	
-	atomBios.runCommand(AtomBios::CommandTables::ASIC_Init);
+	//std::vector<uint32_t> params = {0xAABBCCDD, 0xEEFF0011};
+	std::vector<uint32_t> params = {0, 0};
+	atomBios.runCommand(AtomBios::CommandTables::ASIC_Init, params);
 }

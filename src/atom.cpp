@@ -80,6 +80,22 @@ uint32_t AtomBios::_doIORead(uint32_t reg) {
 	return 0;
 }
 
+void AtomBios::_doIOWrite(uint32_t reg, uint32_t val) {
+	switch(_ioMode) {
+	case IOMode::MM:
+		libatombios_card_reg_write(reg, val);
+		break;
+
+	case IOMode::IIO:
+	case IOMode::PCI:
+	case IOMode::SYSIO:
+	default: {
+		libatombios_printf_warn("io write of type %i is not implemented\n", reg);
+		break;
+	}
+	}
+}
+
 uint32_t AtomBios::_getDataTableOffset() {
 	if(_activeDataTable == 0) {
 		return 0;
@@ -87,4 +103,40 @@ uint32_t AtomBios::_getDataTableOffset() {
 
 	assert(_activeDataTable < 34);
 	return _dataTable.dataTables[_activeDataTable];
+}
+
+const char* opcodeArgEncodingStrings[] = {
+	"REG",
+	"PS",
+	"WS",
+	"FB",
+	"ID",
+	"Imm",
+	"PLL",
+	"MC"
+};
+
+const char* AtomBios::OpcodeArgEncodingToString(OpcodeArgEncoding arg) {
+	assert(arg >= OpcodeArgEncoding::Reg);
+	assert(arg <= OpcodeArgEncoding::MC);
+	
+	return opcodeArgEncodingStrings[arg];
+}
+
+const char* srcEncodingStrings[] = {
+	"[XXXX]",
+	"[--XX]",
+	"[-XX-]",
+	"[XX--]",
+	"[---X]",
+	"[--X-]",
+	"[-X--]",
+	"[X---]"
+};
+
+const char* AtomBios::SrcEncodingToString(SrcEncoding align) {
+	assert(align >= SrcEncoding::SrcDword);
+	assert(align <= SrcEncoding::SrcByte24);
+	
+	return srcEncodingStrings[align];
 }

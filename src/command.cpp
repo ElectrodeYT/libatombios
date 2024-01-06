@@ -36,7 +36,7 @@ void AtomBios::CommandTable::readCommands(const std::vector<uint8_t>& data, uint
 	}
 }
 
-void AtomBios::runCommand(CommandTables table) {
+void AtomBios::runCommand(CommandTables table, std::vector<uint32_t> params) {
 	assert(_commandTable.commands[table]);
-	_runBytecode(_commandTable.commands[table]);
+	_runBytecode(_commandTable.commands[table], params, 0);
 }

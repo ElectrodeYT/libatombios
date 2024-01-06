@@ -154,10 +154,21 @@ public:
 		ParameterSpace,
 		WorkSpace,
 		FrameBuffer,
-		ID,  // TODO: what is this
+		ID,  // Data Tables
 		Imm,
 		PLL, // PLL is better than PhaseLockedLoop
 		MC   // MemoryController?
+	};
+	static const char* OpcodeArgEncodingToString(OpcodeArgEncoding arg);
+
+	enum JumpArgEncoding {
+		Above = 0,
+		AboveOrEqual,
+		Always,
+		Below,
+		BelowOrEqual,
+		Equal,
+		NotEqual
 	};
 
 	enum IOMode {
@@ -177,11 +188,22 @@ public:
 		SrcByte16,
 		SrcByte24
 	};
+	static const char* SrcEncodingToString(SrcEncoding align);
 
-	struct Dst {
-		uint32_t arg;
-		uint32_t idx;
+	enum WorkSpaceSpecialAddresses {
+		WS_QUOTIENT = 0x40,
+		WS_REMAINDER = 0x41,
+		WS_DATAPTR = 0x42,
+		WS_SHIFT = 0x43,
+		WS_OR_MASK = 0x44,
+		WS_AND_MASK = 0x45,
+		WS_FB_WINDOW = 0x46,
+		WS_ATTRIBUTES = 0x47,
+		WS_REGPTR = 0x48
 	};
+
+	/// Opcode structures.
+	/// These are used when parsing opcodes.
 
 	/// The following arrays were taken from the linux kernel; this is the most sane way to implement this.
 	// Translate destination alignment field to the source aligment encoding; taken from the linux amdgpu driver.
@@ -202,6 +224,36 @@ public:
 	// Shift arguments.
 	static constexpr int atom_arg_shift[8] = { 0, 0, 8, 16, 0, 8, 16, 24 };
 
+	struct AttrByte {
+		SrcEncoding dstAlign;
+		SrcEncoding srcAlign;
+		OpcodeArgEncoding srcArg;
+
+		uint32_t swizleSrc(uint32_t in) {
+			in &= atom_arg_mask[srcAlign];
+			in >>= atom_arg_shift[srcAlign];
+			return in;
+		}
+
+		uint32_t swizleDst(uint32_t in) {
+			in &= atom_arg_mask[dstAlign];
+			in >>= atom_arg_shift[dstAlign];
+			return in;
+		}
+
+		uint32_t combineSaved(uint32_t in, uint32_t saved) {
+			if(dstAlign == SrcEncoding::SrcDword) {
+				return in;
+			}
+
+			in <<= atom_arg_shift[dstAlign];
+			in &= atom_arg_mask[dstAlign];
+			saved &= ~atom_arg_mask[dstAlign];
+			in |= saved;
+			return in;
+		}
+	};
+
 	enum Opcodes {
 		MOVE_TO_REG = 0x01,
 		MOVE_TO_PS = 0x02,
@@ -209,7 +261,56 @@ public:
 		MOVE_TO_FB = 0x04,
 		MOVE_TO_PLL = 0x05,
 		MOVE_TO_MC = 0x06,
+		
+		AND_INTO_REG = 0x07,
+		AND_INTO_PS = 0x08,
+		AND_INTO_WS = 0x09,
+		AND_INTO_FB = 0x0A,
+		AND_INTO_PLL = 0x0B,
+		AND_INTO_MC = 0x0C,
+		
+		OR_INTO_REG = 0x0D,
+		OR_INTO_PS = 0x0E,
+		OR_INTO_WS = 0x0F,
+		OR_INTO_FB = 0x10,
+		OR_INTO_PLL = 0x11,
+		OR_INTO_MC = 0x12,
+
+		SET_ATI_PORT = 0x37,
+		SET_PCI_PORT = 0x38,
+		SET_SYSIO_PORT = 0x39,
+
+		JUMP_ALWAYS = 0x43,
+		JUMP_EQUAL = 0x44,
+		JUMP_BELOW = 0x45,
+		JUMP_ABOVE = 0x46,
+		JUMP_BELOWOREQUAL = 0x47,
+		JUMP_ABOVEOREQUAL = 0x48,
+		JUMP_NOTEQUAL = 0x49,
+
+		TEST_FROM_REG = 0x4A,
+		TEST_FROM_PS = 0x4B,
+		TEST_FROM_WS = 0x4C,
+		TEST_FROM_FB = 0x4D,
+		TEST_FROM_PLL = 0x4E,
+		TEST_FROM_MC = 0x4F,
+
+		CLEAR_IN_REG = 0x54,
+		CLEAR_IN_PS = 0x55,
+		CLEAR_IN_WS = 0x56,
+		CLEAR_IN_FB = 0x57,
+		CLEAR_IN_PLL = 0x58,
+		CLEAR_IN_MC = 0x59,
+
+		MASK_INTO_REG = 0x5C,
+		MASK_INTO_PS = 0x5D,
+		MASK_INTO_WS = 0x5E,
+		MASK_INTO_FB = 0x5F,
+		MASK_INTO_PLL = 0x60,
+		MASK_INTO_MC = 0x61,
+
 		CALL_TABLE = 0x52,
+		END_OF_TABLE = 0x5B,
 		SET_DATA_TABLE = 0x66
 	};
 
@@ -267,7 +368,7 @@ public:
 	} __attribute__((packed));
 
 	// TODO: this should lock
-	void runCommand(CommandTables table);
+	void runCommand(CommandTables table, std::vector<uint32_t> params);
 
 private:
 	uint16_t read16(size_t offset) {
@@ -275,11 +376,11 @@ private:
 			(static_cast<uint16_t>(_data[offset + 1]) << 8);
 	}
 	uint32_t read32(size_t offset) {
-		return read16(offset) | (static_cast<uint32_t>(read16(offset + 1)) << 16);
+		return read16(offset) | (static_cast<uint32_t>(read16(offset + 2)) << 16);
 	}
 
 	void copyStructure(void* dest, size_t offset, size_t maxSize);
-	void _runBytecode(std::shared_ptr<Command> command);
+	void _runBytecode(std::shared_ptr<Command> command, std::vector<uint32_t>& params, int params_shift);
 
 	std::vector<uint8_t> _data;
 	size_t _atomRomTableBase = 0;
@@ -290,6 +391,15 @@ private:
 	int _activeDataTable;
 	uint32_t _getDataTableOffset();
 
+	// Current IO mode.
 	IOMode _ioMode = IOMode::MM;
-	uint32_t _doIORead(uint32_t reg); 
+	// Port used in IIO mode.
+	uint16_t _iioPort = 0;
+	uint32_t _doIORead(uint32_t reg);
+	void _doIOWrite(uint32_t reg, uint32_t val);
+
+	// Flags.
+	bool _flagAbove = false;
+	bool _flagEqual = false;
+	bool _flagBelow = false;
 };
