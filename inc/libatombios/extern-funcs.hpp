@@ -2,16 +2,23 @@
 
 #include <stdint.h>
 
-extern "C" [[gnu::weak]] void libatombios_printf_dbg(const char* format, ...);
-extern "C" [[gnu::weak]] void libatombios_printf_log(const char* format, ...);
-extern "C" [[gnu::weak]] void libatombios_printf_warn(const char* format, ...);
-extern "C" [[gnu::weak]] void libatombios_printf_error(const char* format, ...);
 
-// This function is implemented with an implementation that is safe for userspace (uses exit), but can be overrriden.
-// It should _not_ return to libatombios code, if possible, but returning _should_ generally be safe enough if this is not possible;
-// any truly critical cases are handled with asserts.
-extern "C" [[gnu::weak]] void libatombios_printf_panic(const char* format, ...);
+// libatombios uses the printf definitions from lilrad, in order to reduce the amount of proxy work that needs to be done.
+// This prevents multiple definitions of the functions from existing.
+#ifndef __LILRAD_PRINTS_DEFINED
+#define __LILRAD_PRINTS_DEFINED
 
+enum LilradLogType {
+	DEBUG = 0,
+	VERBOSE,
+	INFO,
+	WARNING,
+	ERROR
+};
+
+extern "C" __attribute__((format (printf, 2, 3))) void lilrad_log(enum LilradLogType type, const char* fmt, ...);
+
+#endif
 
 // These functions deal with card register reads and stuff.
 // TODO: how do we best implement these?

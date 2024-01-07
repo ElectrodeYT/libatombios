@@ -3,6 +3,7 @@
 #include <cassert>
 
 #include <libatombios/atom.hpp>
+#include <libatombios/atom-debug.hpp>
 #include <libatombios/extern-funcs.hpp>
 
 AtomBios::Command::Command(const std::vector<uint8_t>& data, int index, uint16_t offset)
@@ -19,8 +20,10 @@ AtomBios::Command::Command(const std::vector<uint8_t>& data, int index, uint16_t
 	_bytecode.resize(bytecodeLength);
 	memcpy(_bytecode.data(), data.data() + offset + 0x6, bytecodeLength);
 
-	//libatombios_printf_dbg("command %i: workSpaceSize=%i, parameterSpaceSize=%i, total size=0x%x, bytecode size=0x%x\n",
-	//	_i, workSpaceSize, parameterSpaceSize, commonHeader.structureSize, bytecodeLength);
+	if(AtomBIOSDebugSettings::logCommandTableCreation) {
+		lilrad_log(DEBUG, "command %02x: workSpaceSize=%i, parameterSpaceSize=%i, total size=0x%x, bytecode size=0x%x\n",
+			_i, workSpaceSize, parameterSpaceSize, commonHeader.structureSize, bytecodeLength);
+	}
 }
 
 void AtomBios::CommandTable::readCommands(const std::vector<uint8_t>& data, uint16_t offset) {

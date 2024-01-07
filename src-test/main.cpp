@@ -7,54 +7,31 @@
 #include <libatombios/atom.hpp>
 #include <libatombios/extern-funcs.hpp>
 
-extern "C" void libatombios_printf_dbg(const char* format, ...) {
+const char* logTypeToString(enum LilradLogType type) {
+	switch(type) {
+	case DEBUG:
+		return "libatombios [DEBG]: ";
+	case VERBOSE:
+		return "libatombios [VERB]: ";
+	case INFO:
+		return "libatombios [INFO]: ";
+	case WARNING:
+		return "libatombios [WARN]: ";
+	case ERROR:
+		return "libatombios [ERR ]: ";
+	}
+
+	__builtin_unreachable();
+}
+
+extern "C" void lilrad_log(enum LilradLogType type, const char* format, ...) {
 	va_list arglist;
 	va_start(arglist, format);
 
 	static char buffer[1024];
-	static const char prefix[] = "libatombios [DBG]: ";
-	strcpy(buffer, prefix);
-	strncat(buffer, format, 1023 - strlen(prefix));
+	strcpy(buffer, logTypeToString(type));
+	strncat(buffer, format, 1023 - strlen(logTypeToString(type)));
 	vprintf(buffer, arglist);
-
-	va_end(arglist);
-}
-
-extern "C" void libatombios_printf_log(const char* format, ...) {
-	va_list arglist;
-	va_start(arglist, format);
-
-	static char buffer[1024];
-	static const char prefix[] = "libatombios [LOG]: ";
-	strcpy(buffer, prefix);
-	strncat(buffer, format, 1023 - strlen(prefix));
-	vprintf(buffer, arglist);
-
-	va_end(arglist);
-}
-
-extern "C" void libatombios_printf_warn(const char* format, ...) {
-	va_list arglist;
-	va_start(arglist, format);
-
-	static char buffer[1024];
-	static const char prefix[] = "libatombios [WRN]: ";
-	strcpy(buffer, prefix);
-	strncat(buffer, format, 1023 - strlen(prefix));
-	vfprintf(stderr, buffer, arglist);
-
-	va_end(arglist);
-}
-
-extern "C" void libatombios_printf_error(const char* format, ...) {
-	va_list arglist;
-	va_start(arglist, format);
-
-	static char buffer[1024];
-	static const char prefix[] = "libatombios [ERR]: ";
-	strcpy(buffer, prefix);
-	strncat(buffer, format, 1023 - strlen(prefix));
-	vfprintf(stderr, buffer, arglist);
 
 	va_end(arglist);
 }

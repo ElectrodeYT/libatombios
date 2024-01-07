@@ -11,7 +11,7 @@ AtomBios::AtomBios(const std::vector<uint8_t>& data)
 	// Verify the BIOS magic.
 	{
 		uint16_t biosMagic = read16(0);
-		libatombios_printf_dbg("biosMagic is %x\n", biosMagic);
+		lilrad_log(DEBUG, "biosMagic is %x\n", biosMagic);
 		assert(biosMagic == 0xAA55);
 	}
 
@@ -20,12 +20,12 @@ AtomBios::AtomBios(const std::vector<uint8_t>& data)
 		char atiMagic[11];
 		memcpy(atiMagic, _data.data() + 0x30, 10);
 		atiMagic[10] = '\0';
-		libatombios_printf_dbg("ATI Magic is %x\n", atiMagic);
+		lilrad_log(DEBUG, "ATI Magic is %s\n", atiMagic);
 		assert(strcmp(atiMagic, " 761295520") == 0);
 	}
 
 	_atomRomTableBase = read16(0x48);
-	libatombios_printf_dbg("Atom ROM Table Base is %x\n", _atomRomTableBase);
+	lilrad_log(DEBUG, "Atom ROM Table Base is %zx\n", _atomRomTableBase);
 	
 	// Copy the Atom ROM Table.
 	{
@@ -39,12 +39,12 @@ AtomBios::AtomBios(const std::vector<uint8_t>& data)
 		char atomRomTableMagic[5];
 		memcpy(atomRomTableMagic, _atomRomTable.atomMagic, 4);
 		atomRomTableMagic[4] = '\0';
-		libatombios_printf_dbg("Atom ROM Table Magic is %s\n", atomRomTableMagic);
+		lilrad_log(DEBUG, "Atom ROM Table Magic is %s\n", atomRomTableMagic);
 		assert(strcmp(atomRomTableMagic, "ATOM") == 0);
 	}
 
 	// Copy the data table.
-	libatombios_printf_dbg("Atom Data Table Base is %x\n", _atomRomTable.dataTableBase);
+	lilrad_log(DEBUG, "Atom Data Table Base is %x\n", _atomRomTable.dataTableBase);
 	copyStructure(&_dataTable, _atomRomTable.dataTableBase, sizeof(DataTable));
 
 	// Initialize the command table.
@@ -59,7 +59,7 @@ void AtomBios::copyStructure(void* dest, size_t offset, size_t maxSize) {
 	size_t copySize = commonHeaderSize < maxSize ? commonHeaderSize : maxSize;
 	
 	if(copySize != maxSize) {
-		libatombios_printf_warn("copyStructure max size exceded! CommonHeader lists size as 0x%x, but max size is 0x%x\n", commonHeaderSize, maxSize);
+		lilrad_log(WARNING, "copyStructure max size exceded! CommonHeader lists size as 0x%zx, but max size is 0x%zx\n", commonHeaderSize, maxSize);
 	}
 
 	memcpy(dest, _data.data() + offset, copySize);
@@ -71,16 +71,16 @@ uint32_t AtomBios::_doIORead(uint32_t reg) {
 	case IOMode::MM: return libatombios_card_reg_read(reg);
 
 	case IOMode::PCI:
-		libatombios_printf_warn("PCI reads are not implemented (requested reg: 0x%x)\n", reg);
+		lilrad_log(WARNING, "PCI reads are not implemented (requested reg: 0x%x)\n", reg);
 		return 0;
 	case IOMode::SYSIO:
-		libatombios_printf_warn("SYSIO reads are not implemented (requested reg: 0x%x)\n", reg);
+		lilrad_log(WARNING, "SYSIO reads are not implemented (requested reg: 0x%x)\n", reg);
 		return 0;
 	case IOMode::IIO:
 		if(_iioIndexes[_iioPort]) {
 			return _runIIO(_iioIndexes[_iioPort], reg, 0);
 		} else {
-			libatombios_printf_warn("Invalid IIO port %02x (function does not exist, requested reg: %04x)\n", _iioPort, reg);
+			lilrad_log(WARNING, "Invalid IIO port %02x (function does not exist, requested reg: %04x)\n", _iioPort, reg);
 		}
 		return 0;
 	}
@@ -95,13 +95,13 @@ void AtomBios::_doIOWrite(uint32_t reg, uint32_t val) {
 		return;
 	case IOMode::PCI:
 	case IOMode::SYSIO:
-		libatombios_printf_warn("PCI / SYSIO writes are not implemented (requested reg/val: 0x%x <- 0x%x)\n", reg, val);
+		lilrad_log(WARNING, "PCI / SYSIO writes are not implemented (requested reg/val: 0x%x <- 0x%x)\n", reg, val);
 		return;
 	case IOMode::IIO:
 		if(_iioIndexes[_iioPort]) {
 			_runIIO(_iioIndexes[_iioPort], reg, val);
 		} else {
-			libatombios_printf_warn("Invalid IIO port %02x (function does not exist, requested reg/val: %04x <- %x)\n", _iioPort, reg, val);
+			lilrad_log(WARNING, "Invalid IIO port %02x (function does not exist, requested reg/val: %04x <- %x)\n", _iioPort, reg, val);
 		}
 		return;
 	}
