@@ -8,7 +8,8 @@ libatombios_sources = [
     'src/atom.cpp',
     'src/bytecode.cpp',
     'src/command.cpp',
-    'src/dumpToConsoles.cpp'
+    'src/dumpToConsoles.cpp',
+    'src/iio.cpp'
 ]
 
 atombios_sources = [
