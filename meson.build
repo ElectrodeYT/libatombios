@@ -18,7 +18,7 @@ atombios_sources = [
 
 inc = include_directories('inc')
 
-build_atombios_tool = get_option('build_tool')
+build_atombios_tool = get_option('build_tools')
 
 libatombios = static_library('atombios',
     libatombios_sources,
