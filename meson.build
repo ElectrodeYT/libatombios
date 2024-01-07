@@ -23,7 +23,8 @@ build_atombios_tool = get_option('build_tools')
 libatombios = static_library('atombios',
     libatombios_sources,
     include_directories : inc,
-    install : true
+    install : true,
+    pic : get_option('pic')
 )
 libatombios_dep = declare_dependency(
     include_directories : inc,

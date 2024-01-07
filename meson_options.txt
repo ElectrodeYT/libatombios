@@ -2,3 +2,8 @@ option('build_tools',
 	type : 'boolean',
 	value : false
 	)
+
+option('pic',
+	type : 'boolean',
+	value : false
+	)
