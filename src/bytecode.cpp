@@ -33,19 +33,28 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 		params[offset + params_shift] = data;
 	};
 
-	auto getWorkSpace = [&command, &workSpace](uint32_t offset) -> uint32_t {
+	auto getWorkSpace = [this, &workSpace](uint32_t offset) -> uint32_t {
 		assert(offset >= 0);
 
 		switch(static_cast<WorkSpaceSpecialAddresses>(offset)) {
 		case WS_QUOTIENT:
+			return _divMulQuotient;
 		case WS_REMAINDER:
+			return _divMulRemainder;
 		case WS_DATAPTR:
+			return _dataBlock;
 		case WS_SHIFT:
+			return _workSpaceMaskShift;
 		case WS_OR_MASK:
+			return 1 << _workSpaceMaskShift;
 		case WS_AND_MASK:
+			return ~(1 << _workSpaceMaskShift);
 		case WS_FB_WINDOW:
+			return _fbBlock;
 		case WS_ATTRIBUTES:
+			return _iioIOAttr;
 		case WS_REGPTR:
+			return _regBlock;
 			libatombios_printf_warn("getWorkspace: special address 0x%02x not implemented\n", offset);
 			break;
 		}
@@ -56,21 +65,35 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 
 		return workSpace[offset];
 	};
-	auto setWorkSpace = [&command, &workSpace](uint32_t offset, uint32_t data) {
+	auto setWorkSpace = [this, &workSpace](uint32_t offset, uint32_t data) {
 		assert(offset >= 0);
 
 		switch(static_cast<WorkSpaceSpecialAddresses>(offset)) {
 		case WS_QUOTIENT:
+			_divMulQuotient = data;
+			return;
 		case WS_REMAINDER:
+			_divMulRemainder = data;
+			return;
 		case WS_DATAPTR:
+			_dataBlock = data;
+			return;
 		case WS_SHIFT:
+			_workSpaceMaskShift = data;
+			return;
+		case WS_FB_WINDOW:
+			_fbBlock = data;
+			return;
+		case WS_ATTRIBUTES:
+			_iioIOAttr = data;
+			return;
+		case WS_REGPTR:
+			_regBlock = data;
+			return;
 		case WS_OR_MASK:
 		case WS_AND_MASK:
-		case WS_FB_WINDOW:
-		case WS_ATTRIBUTES:
-		case WS_REGPTR:
-			libatombios_printf_warn("setWorkSpace: special address 0x%02x not implemented\n", offset);
-			break;
+			libatombios_printf_warn("setWorkSpace: write to special address 0x%02x is not defined\n", offset);
+			return;
 		}
 
 		if(offset >= workSpace.size()) {
@@ -153,16 +176,16 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 		}
 		return idx;
 	};
-	auto consumeVal = [this, &getParameterSpace, &getWorkSpace, &consumeByte, &consumeShort, &consumeLong](OpcodeArgEncoding arg, AttrByte attrByte, uint32_t idx) -> uint32_t {
+	auto consumeVal = [this, &command, &getParameterSpace, &getWorkSpace, &consumeByte, &consumeShort, &consumeLong](OpcodeArgEncoding arg, AttrByte attrByte, uint32_t idx) -> uint32_t {
 		switch(arg) {
 		case OpcodeArgEncoding::Reg:
-			return _doIORead(idx);
+			return _doIORead(idx + _regBlock);
 
 		case OpcodeArgEncoding::ParameterSpace:
 			return getParameterSpace(idx);
 
 		case OpcodeArgEncoding::ID:
-			return read32(idx + _getDataTableOffset());
+			return read32(idx + _dataBlock);
 
 		case OpcodeArgEncoding::Imm:
 			// Immideates only make sense for source values.
@@ -195,7 +218,7 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 	auto putVal = [this, &setParameterSpace, &setWorkSpace](OpcodeArgEncoding arg, uint32_t idx, uint32_t val) {
 		switch(arg) {
 		case OpcodeArgEncoding::Reg:
-			_doIOWrite(idx, val);
+			_doIOWrite(idx + _regBlock, val);
 			break;
 
 		case OpcodeArgEncoding::ParameterSpace:
@@ -224,10 +247,30 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 		ip += count;
 	};
 
+	// Safely peek into command data.
+	auto peekByte = [&command, &ip]() -> uint8_t {
+		assert(ip < command->_bytecode.size());
+		return command->_bytecode[ip];
+	};
+	auto peekShort = [&command, &ip]() -> uint16_t {
+		assert(ip < (command->_bytecode.size() - 1));
+		uint8_t a = command->_bytecode[ip];
+		uint8_t b = command->_bytecode[ip + 1];
+		return static_cast<uint16_t>(a) | (static_cast<uint16_t>(b) << 8);
+	};
+	__attribute__((unused)) auto peekLong = [&command, &ip]() -> uint32_t {
+		assert(ip < (command->_bytecode.size() - 3));
+		uint8_t a = command->_bytecode[ip];
+		uint8_t b = command->_bytecode[ip + 1];
+		uint8_t c = command->_bytecode[ip + 2];
+		uint8_t d = command->_bytecode[ip + 3];
+		return static_cast<uint32_t>(a) | (static_cast<uint32_t>(b) << 8) | (static_cast<uint32_t>(c) << 16) | (static_cast<uint32_t>(d) << 24);
+	};
+
 	///
 	/// Opcodes
 	///
-	auto moveOpcode = [&consumeAttrByte, &consumeIdx, &consumeVal, &putVal](OpcodeArgEncoding arg) {
+	auto moveOpcode = [this, &consumeAttrByte, &consumeIdx, &consumeVal, &putVal](OpcodeArgEncoding arg) {
 		AttrByte attrByte = consumeAttrByte();
 		uint32_t dstIdx = consumeIdx(arg);
 		uint32_t srcIdx = consumeIdx(attrByte.srcArg);
@@ -241,7 +284,7 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 		putVal(arg, dstIdx, attrByte.combineSaved(val, saved));
 	};
 
-	auto andOpcode = [&consumeAttrByte, &consumeIdx, &consumeVal, &putVal](OpcodeArgEncoding arg) {
+	auto andOpcode = [this, &consumeAttrByte, &consumeIdx, &consumeVal, &putVal](OpcodeArgEncoding arg) {
 		AttrByte attrByte = consumeAttrByte();
 		uint32_t dstIdx = consumeIdx(arg);
 		uint32_t srcIdx = consumeIdx(attrByte.srcArg);
@@ -255,8 +298,7 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 		putVal(arg, dstIdx, attrByte.combineSaved(newVal, saved));
 	};
 
-
-	auto orOpcode = [&consumeAttrByte, &consumeIdx, &consumeVal, &putVal](OpcodeArgEncoding arg) {
+	auto orOpcode = [this, &consumeAttrByte, &consumeIdx, &consumeVal, &putVal](OpcodeArgEncoding arg) {
 		AttrByte attrByte = consumeAttrByte();
 		uint32_t dstIdx = consumeIdx(arg);
 		uint32_t srcIdx = consumeIdx(attrByte.srcArg);
@@ -266,6 +308,20 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 		uint32_t newVal = attrByte.swizleDst(saved) | val;
 
 		LOG_OPCODE("OR");
+
+		putVal(arg, dstIdx, attrByte.combineSaved(newVal, saved));
+	};
+
+	auto xorOpcode = [this, &consumeAttrByte, &consumeIdx, &consumeVal, &putVal](OpcodeArgEncoding arg) {
+		AttrByte attrByte = consumeAttrByte();
+		uint32_t dstIdx = consumeIdx(arg);
+		uint32_t srcIdx = consumeIdx(attrByte.srcArg);
+
+		uint32_t saved = consumeVal(arg, attrByte, dstIdx);
+		uint32_t val = attrByte.swizleSrc(consumeVal(attrByte.srcArg, attrByte, srcIdx));
+		uint32_t newVal = attrByte.swizleDst(saved) ^ val;
+
+		LOG_OPCODE("XOR");
 
 		putVal(arg, dstIdx, attrByte.combineSaved(newVal, saved));
 	};
@@ -315,8 +371,21 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 		}
 
 		if(AtomBIOSDebugSettings::logOpcodes) {
-			libatombios_printf_dbg("opcode JUMP_* (shouldJump = %i, oldIP = %x, newIP = %x)\n",
-				shouldJump, ip, shouldJump ? target : ip);
+			static const char* jumpOpcodeNames[] = {
+				"JUMP_ABOVE",
+				"JUMP_ABOVEOREQUAL",
+				"JUMP_ALWAYS",
+				"JUMP_BELOW",
+				"JUMP_BELOWOREQUAL",
+				"JUMP_EQUAL",
+				"JUMP_NOTEQUAL"
+			};
+
+			assert(jumpCond >= 0);
+			assert(jumpCond <= JumpArgEncoding::NotEqual);
+
+			libatombios_printf_dbg("opcode %s (shouldJump = %i, oldIP = %x, newIP = %x)\n",
+				jumpOpcodeNames[jumpCond], shouldJump, ip, shouldJump ? target : ip);
 		}
 
         if(shouldJump) {
@@ -324,7 +393,7 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 		}
 	};
 
-	auto clearOpcode = [&consumeAttrByte, &consumeIdx, &consumeVal, &putVal](OpcodeArgEncoding arg) {
+	auto clearOpcode = [this, &consumeAttrByte, &consumeIdx, &consumeVal, &putVal](OpcodeArgEncoding arg) {
 		AttrByte attrByte = consumeAttrByte();
 		uint32_t dstIdx = consumeIdx(arg);
 
@@ -415,6 +484,113 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 		putVal(arg, dstIdx, attrByte.combineSaved(newVal, saved));
 	};
 
+	auto addOpcode = [this, &consumeAttrByte, &consumeIdx, &consumeVal, &putVal](OpcodeArgEncoding arg) {
+		AttrByte attrByte = consumeAttrByte();
+		uint32_t dstIdx = consumeIdx(arg);
+		uint32_t srcIdx = consumeIdx(attrByte.srcArg);
+
+		uint32_t saved = consumeVal(arg, attrByte, dstIdx);
+		uint32_t val = attrByte.swizleSrc(consumeVal(attrByte.srcArg, attrByte, srcIdx));
+		uint32_t newVal = attrByte.swizleDst(saved) + val;
+
+		LOG_OPCODE("ADD");
+
+		putVal(arg, dstIdx, attrByte.combineSaved(newVal, saved));
+	};
+
+	auto subOpcode = [this, &consumeAttrByte, &consumeIdx, &consumeVal, &putVal](OpcodeArgEncoding arg) {
+		AttrByte attrByte = consumeAttrByte();
+		uint32_t dstIdx = consumeIdx(arg);
+		uint32_t srcIdx = consumeIdx(attrByte.srcArg);
+
+		uint32_t saved = consumeVal(arg, attrByte, dstIdx);
+		uint32_t val = attrByte.swizleSrc(consumeVal(attrByte.srcArg, attrByte, srcIdx));
+		uint32_t newVal = attrByte.swizleDst(saved) - val;
+
+		LOG_OPCODE("SUB");
+
+		putVal(arg, dstIdx, attrByte.combineSaved(newVal, saved));
+	};
+
+	auto switchOpcode = [&consumeAttrByte, &consumeIdx, &consumeVal, &consumeAlignSize, &consumeShort, &skip, &peekByte, &peekShort, &performJump]() {
+		AttrByte attrByte = consumeAttrByte();
+		uint32_t srcIdx = consumeIdx(attrByte.srcArg);
+		uint32_t switchVal = consumeVal(attrByte.srcArg, attrByte, srcIdx);
+
+		constexpr uint8_t caseMagic = 0x63;
+		constexpr uint16_t caseEnd = 0x5A5A;
+
+		if(AtomBIOSDebugSettings::logOpcodes) {
+			libatombios_printf_dbg("opcode SWITCH(%s[%02x] %s, switchVal = %x, ...\n",
+				OpcodeArgEncodingToString(attrByte.srcArg), srcIdx, SrcEncodingToString(attrByte.srcAlign),switchVal);
+		}
+
+		while(peekShort() != caseEnd) {
+			// This is a peek, because we bail out instantly if this is not taken.
+			// The linux intepreter does this, so we do too.
+			if(peekByte() == caseMagic) {
+				skip(1);
+				uint32_t caseVal = consumeAlignSize(attrByte.srcAlign);
+				uint16_t target = consumeShort();
+
+				if(caseVal == switchVal) {
+					performJump(target);
+
+					if(AtomBIOSDebugSettings::logOpcodes) {
+						libatombios_printf_dbg("   ... caseVal=%x, target=%x; taken)\n", caseVal, target);
+					}
+
+					return;
+				} else if(AtomBIOSDebugSettings::logOpcodes) {
+					libatombios_printf_dbg("   ... caseVal=%x, target=%x; not taken ...\n", caseVal, target);
+				}
+			} else {
+				libatombios_printf_warn("switchOpcode: invalid case magic seen, bailing out!");
+				return;
+			}
+		}
+		if(AtomBIOSDebugSettings::logOpcodes) {
+			libatombios_printf_dbg("   ... no path taken.)\n");
+		}
+		// No jump was taken, skip past the end magic
+		skip(2);	
+	};
+
+	auto mulOpcode = [this, &consumeAttrByte, &consumeIdx, &consumeVal, &putVal](OpcodeArgEncoding arg) {
+		AttrByte attrByte = consumeAttrByte();
+		uint32_t dstIdx = consumeIdx(arg);
+		uint32_t srcIdx = consumeIdx(attrByte.srcArg);
+
+		uint32_t saved = consumeVal(arg, attrByte, dstIdx);
+		uint32_t val = attrByte.swizleSrc(consumeVal(attrByte.srcArg, attrByte, srcIdx));
+		uint32_t newVal = attrByte.swizleDst(saved) * val;
+
+		LOG_OPCODE("MUL");
+
+		_divMulQuotient = newVal;
+	};
+
+	// TODO: log both the quotient and the remainder here
+	auto divOpcode = [this, &consumeAttrByte, &consumeIdx, &consumeVal, &putVal](OpcodeArgEncoding arg) {
+		AttrByte attrByte = consumeAttrByte();
+		uint32_t dstIdx = consumeIdx(arg);
+		uint32_t srcIdx = consumeIdx(attrByte.srcArg);
+
+		uint32_t saved = consumeVal(arg, attrByte, dstIdx);
+		uint32_t val = attrByte.swizleSrc(consumeVal(attrByte.srcArg, attrByte, srcIdx));
+		uint32_t newVal = 0;
+		uint32_t remainder = 0;
+		// Do not accidently divide by zero; a div by 0 in atombios results in a 0.
+		if(val) {
+			newVal = attrByte.swizleDst(saved) / val;
+			remainder = attrByte.swizleDst(saved) % val;
+		}
+
+		LOG_OPCODE("DIV");
+
+		_divMulQuotient = newVal;
+		_divMulRemainder = remainder;
+	};
 
 	while(ip < command->_bytecode.size()) {
 		uint8_t opcode = consumeByte();
@@ -432,13 +608,18 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 		}
 		case Opcodes::SET_DATA_TABLE: {
 			uint8_t table = consumeByte();
-			_activeDataTable = table;
 
 			if(AtomBIOSDebugSettings::logOpcodes) {
 				libatombios_printf_dbg("opcode SET_DATA_TABLE(%i)\n", table);
 			}
 			if(table == 255) {
 				libatombios_printf_warn("handling of SET_DATA_TABLE(255) may not be correct\n");
+				_dataBlock = 0;
+			} else if(table >= ((sizeof(DataTable) - sizeof(CommonHeader)) / 2)) {
+				libatombios_printf_warn("SET_DATA_TABLE(0x%x) is outside of the data table, setting _dataBlock to 0!\n", table);
+				_dataBlock = 0;
+			} else {
+				_dataBlock = _dataTable.dataTables[table];
 			}
 			break;
 		} 
@@ -462,6 +643,25 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 		case Opcodes::SET_SYSIO_PORT:
 			_ioMode = IOMode::SYSIO;
 			break;
+		case Opcodes::SET_REG_BLOCK:
+			_regBlock = consumeShort();
+			if(AtomBIOSDebugSettings::logOpcodes) {
+				libatombios_printf_dbg("opcode SET_REG_BLOCK(%02x)\n", _regBlock);
+			}
+			break;
+		case Opcodes::SWITCH:
+			switchOpcode();
+			break;
+
+		/// Delays
+		case Opcodes::DELAY_MICROSECONDS: {
+			uint8_t delay = consumeByte();
+			if(AtomBIOSDebugSettings::logOpcodes) {
+				libatombios_printf_dbg("opcode DELAY_MICROSECONDS(%02x)\n", delay);
+			}
+			libatombios_delay_microseconds(delay);
+			break;
+		}
 
 		/// Moves
 		case Opcodes::MOVE_TO_REG:
@@ -561,6 +761,87 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 			break;
 		case Opcodes::SHIFT_RIGHT_IN_MC:
 			shiftRightOpcode(OpcodeArgEncoding::MC);
+			break;
+
+		/// MUL
+		case Opcodes::MUL_WITH_REG:
+			mulOpcode(OpcodeArgEncoding::Reg);
+			break;
+		case Opcodes::MUL_WITH_PS:
+			mulOpcode(OpcodeArgEncoding::ParameterSpace);
+			break;
+		case Opcodes::MUL_WITH_WS:
+			mulOpcode(OpcodeArgEncoding::WorkSpace);
+			break;
+		case Opcodes::MUL_WITH_FB:
+			mulOpcode(OpcodeArgEncoding::FrameBuffer);
+			break;
+		case Opcodes::MUL_WITH_PLL:
+			mulOpcode(OpcodeArgEncoding::PLL);
+			break;
+		case Opcodes::MUL_WITH_MC:
+			mulOpcode(OpcodeArgEncoding::MC);
+			break;
+
+		/// DIV
+		case Opcodes::DIV_WITH_REG:
+			divOpcode(OpcodeArgEncoding::Reg);
+			break;
+		case Opcodes::DIV_WITH_PS:
+			divOpcode(OpcodeArgEncoding::ParameterSpace);
+			break;
+		case Opcodes::DIV_WITH_WS:
+			divOpcode(OpcodeArgEncoding::WorkSpace);
+			break;
+		case Opcodes::DIV_WITH_FB:
+			divOpcode(OpcodeArgEncoding::FrameBuffer);
+			break;
+		case Opcodes::DIV_WITH_PLL:
+			divOpcode(OpcodeArgEncoding::PLL);
+			break;
+		case Opcodes::DIV_WITH_MC:
+			divOpcode(OpcodeArgEncoding::MC);
+			break;
+
+
+		/// ADD
+		case Opcodes::ADD_INTO_REG:
+			addOpcode(OpcodeArgEncoding::Reg);
+			break;
+		case Opcodes::ADD_INTO_PS:
+			addOpcode(OpcodeArgEncoding::ParameterSpace);
+			break;
+		case Opcodes::ADD_INTO_WS:
+			addOpcode(OpcodeArgEncoding::WorkSpace);
+			break;
+		case Opcodes::ADD_INTO_FB:
+			addOpcode(OpcodeArgEncoding::FrameBuffer);
+			break;
+		case Opcodes::ADD_INTO_PLL:
+			addOpcode(OpcodeArgEncoding::PLL);
+			break;
+		case Opcodes::ADD_INTO_MC:
+			addOpcode(OpcodeArgEncoding::MC);
+			break;
+
+		/// SUB
+		case Opcodes::SUB_INTO_REG:
+			subOpcode(OpcodeArgEncoding::Reg);
+			break;
+		case Opcodes::SUB_INTO_PS:
+			subOpcode(OpcodeArgEncoding::ParameterSpace);
+			break;
+		case Opcodes::SUB_INTO_WS:
+			subOpcode(OpcodeArgEncoding::WorkSpace);
+			break;
+		case Opcodes::SUB_INTO_FB:
+			subOpcode(OpcodeArgEncoding::FrameBuffer);
+			break;
+		case Opcodes::SUB_INTO_PLL:
+			subOpcode(OpcodeArgEncoding::PLL);
+			break;
+		case Opcodes::SUB_INTO_MC:
+			subOpcode(OpcodeArgEncoding::MC);
 			break;
 
 		/// COMPARE
@@ -664,6 +945,26 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 			break;
 		case Opcodes::MASK_INTO_MC:
 			maskOpcode(OpcodeArgEncoding::MC);
+			break;
+
+		/// XOR
+		case Opcodes::XOR_INTO_REG:
+			xorOpcode(OpcodeArgEncoding::Reg);
+			break;
+		case Opcodes::XOR_INTO_PS:
+			xorOpcode(OpcodeArgEncoding::ParameterSpace);
+			break;
+		case Opcodes::XOR_INTO_WS:
+			xorOpcode(OpcodeArgEncoding::WorkSpace);
+			break;
+		case Opcodes::XOR_INTO_FB:
+			xorOpcode(OpcodeArgEncoding::FrameBuffer);
+			break;
+		case Opcodes::XOR_INTO_PLL:
+			xorOpcode(OpcodeArgEncoding::PLL);
+			break;
+		case Opcodes::XOR_INTO_MC:
+			xorOpcode(OpcodeArgEncoding::MC);
 			break;
 
 		case Opcodes::END_OF_TABLE: {

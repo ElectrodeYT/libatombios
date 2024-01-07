@@ -21,3 +21,7 @@ extern "C" [[gnu::weak]] void libatombios_card_mc_write(uint32_t reg, uint32_t v
 extern "C" [[gnu::weak]] uint32_t libatombios_card_mc_read(uint32_t reg);
 extern "C" [[gnu::weak]] void libatombios_card_pll_write(uint32_t reg, uint32_t val);
 extern "C" [[gnu::weak]] uint32_t libatombios_card_pll_read(uint32_t reg);
+
+// These functions should delay for an amount of time.
+extern "C" [[gnu::weak]] void libatombios_delay_microseconds(uint32_t microseconds);
+extern "C" [[gnu::weak]] void libatombios_delay_milliseconds(uint32_t milliseconds);

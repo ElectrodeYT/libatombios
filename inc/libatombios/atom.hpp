@@ -171,11 +171,13 @@ public:
 		NotEqual
 	};
 
+	// This follows the linux driver numbering, however this is not technically needed.
+	// (Linux ORs the IIO port and the IO mode together; we do not do this.)
 	enum IOMode {
-		MM,
-		PCI,
-		SYSIO,
-		IIO
+		MM = 0,
+		PCI = 1,
+		SYSIO = 2,
+		IIO = 0x80
 	};
 
 	enum SrcEncoding {
@@ -290,9 +292,38 @@ public:
 		SHIFT_RIGHT_IN_PLL = 0x1D,
 		SHIFT_RIGHT_IN_MC = 0x1E,
 
+		MUL_WITH_REG = 0x1F,
+		MUL_WITH_PS = 0x20,
+		MUL_WITH_WS = 0x21,
+		MUL_WITH_FB = 0x22,
+		MUL_WITH_PLL = 0x23,
+		MUL_WITH_MC = 0x24,
+
+		DIV_WITH_REG = 0x25,
+		DIV_WITH_PS = 0x26,
+		DIV_WITH_WS = 0x27,
+		DIV_WITH_FB = 0x28,
+		DIV_WITH_PLL = 0x29,
+		DIV_WITH_MC = 0x2A,
+
+		ADD_INTO_REG = 0x2B,
+		ADD_INTO_PS = 0x2C,
+		ADD_INTO_WS = 0x2D,
+		ADD_INTO_FB = 0x2E,
+		ADD_INTO_PLL = 0x2F,
+		ADD_INTO_MC = 0x30,
+
+		SUB_INTO_REG = 0x31,
+		SUB_INTO_PS = 0x32,
+		SUB_INTO_WS = 0x33,
+		SUB_INTO_FB = 0x34,
+		SUB_INTO_PLL = 0x35,
+		SUB_INTO_MC = 0x36,
+
 		SET_ATI_PORT = 0x37,
 		SET_PCI_PORT = 0x38,
 		SET_SYSIO_PORT = 0x39,
+		SET_REG_BLOCK = 0x3A,
 
 		COMPARE_FROM_REG = 0x3C,
 		COMPARE_FROM_PS = 0x3D,
@@ -300,6 +331,8 @@ public:
 		COMPARE_FROM_FB = 0x3F,
 		COMPARE_FROM_PLL = 0x40,
 		COMPARE_FROM_MC = 0x41,
+
+		SWITCH = 0x42,
 
 		JUMP_ALWAYS = 0x43,
 		JUMP_EQUAL = 0x44,
@@ -315,6 +348,8 @@ public:
 		TEST_FROM_FB = 0x4D,
 		TEST_FROM_PLL = 0x4E,
 		TEST_FROM_MC = 0x4F,
+
+		DELAY_MICROSECONDS = 0x51,
 
 		CLEAR_IN_REG = 0x54,
 		CLEAR_IN_PS = 0x55,
@@ -332,7 +367,27 @@ public:
 
 		CALL_TABLE = 0x52,
 		END_OF_TABLE = 0x5B,
-		SET_DATA_TABLE = 0x66
+		SET_DATA_TABLE = 0x66,
+
+		XOR_INTO_REG = 0x67,
+		XOR_INTO_PS = 0x68,
+		XOR_INTO_WS = 0x69,
+		XOR_INTO_FB = 0x6A,
+		XOR_INTO_PLL = 0x6B,
+		XOR_INTO_MC = 0x6C
+	};
+
+	enum IIOOpcodes {
+		NOP = 0,
+		START = 1,
+		READ = 2,
+		WRITE = 3,
+		CLEAR = 4,
+		SET = 5,
+		MOVE_INDEX = 6,
+		MOVE_ATTR = 7,
+		MOVE_DATA = 8,
+		END = 9
 	};
 
 	// TODO: do we want to do this like this?
@@ -409,18 +464,43 @@ private:
 	CommandTable _commandTable;
 	DataTable _dataTable;
 
-	int _activeDataTable;
-	uint32_t _getDataTableOffset();
+	// Pointer into the ROM from which ID fetches are relative too.
+	// Mapped into the WorkSpace.
+	uint32_t _dataBlock = 0;
 
 	// Current IO mode.
 	IOMode _ioMode = IOMode::MM;
 	// Port used in IIO mode.
 	uint16_t _iioPort = 0;
+	// ROM offsets for IIO functions.
+	std::vector<uint32_t> _iioIndexes;
+
+	void _indexIIO(uint32_t base);
+	uint32_t _runIIO(uint32_t offset, uint32_t index, uint32_t data);
+
+	// Current reg block.
+	uint16_t _regBlock = 0;
 	uint32_t _doIORead(uint32_t reg);
 	void _doIOWrite(uint32_t reg, uint32_t val);
+	// Current FB block.
+	uint16_t _fbBlock = 0;
 
 	// Flags.
 	bool _flagAbove = false;
 	bool _flagEqual = false;
 	bool _flagBelow = false;
+
+	// the DIV/MUL registers.
+	// Mapped in the WorkSpace, used by the DIV and MUL instructions.
+	uint32_t _divMulQuotient = 0;
+	uint32_t _divMulRemainder = 0;
+
+	// IIO IO Attributes
+	// TODO: what the hell?
+	// Mapped into the WorkSpace.
+	uint32_t _iioIOAttr = 0;
+
+	// WorkSpace mask generator value.
+	// Mapped into the WorkSpace; used to generate an OR and AND mask on two other registers.
+	uint32_t _workSpaceMaskShift = 0;
 };

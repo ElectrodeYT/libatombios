@@ -64,6 +64,18 @@ extern "C" [[gnu::weak]] void libatombios_card_reg_write(uint32_t reg, uint32_t 
 }
 extern "C" [[gnu::weak]] uint32_t libatombios_card_reg_read(uint32_t reg) {
 	uint32_t val = 0xAA;
+
+	if(reg == 0x1b9c) {
+		val = 0xFF01FFFF;
+		//val = 0;
+	} else if(reg == 0x394) {
+		val = 0x00001F00;
+	} else if(reg == 0x4ccd) {
+		val = 0x00010000;
+	} else if(reg == 0x4bcb) {
+		val = 0x00010000;
+	}
+
 	printf("aaa: reg=%x, val=%x\n", reg, val);
 	return val;
 }
@@ -82,6 +94,13 @@ extern "C" [[gnu::weak]] uint32_t libatombios_card_pll_read(uint32_t reg) {
 	uint32_t val = 0xAA;
 	printf("aaa: reg=%x, val=%x\n", reg, val);
 	return val;
+}
+
+extern "C" [[gnu::weak]] void libatombios_delay_microseconds(uint32_t microseconds) {
+	
+}
+extern "C" [[gnu::weak]] void libatombios_delay_milliseconds(uint32_t milliseconds) {
+	
 }
 
 int main(int argc, char** argv) {

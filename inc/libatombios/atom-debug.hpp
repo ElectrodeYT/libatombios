@@ -5,16 +5,16 @@
 #define LOG_OPCODE(name) \
 	if(AtomBIOSDebugSettings::logOpcodes) { \
 		libatombios_printf_dbg("opcode " name "(%s[%02x] %s (savedVal: %x) <- %s[%02x] %s (val: %x, newVal: %x))\n", \
-			OpcodeArgEncodingToString(arg), dstIdx, SrcEncodingToString(attrByte.dstAlign), \
+			OpcodeArgEncodingToString(arg), arg == OpcodeArgEncoding::Reg ? dstIdx + _regBlock : dstIdx, SrcEncodingToString(attrByte.dstAlign), \
 			saved, \
-			OpcodeArgEncodingToString(attrByte.srcArg), srcIdx, SrcEncodingToString(attrByte.srcAlign), \
+			OpcodeArgEncodingToString(attrByte.srcArg), attrByte.srcArg == OpcodeArgEncoding::Reg ? srcIdx + _regBlock : srcIdx, SrcEncodingToString(attrByte.srcAlign), \
 			val, newVal); \
 	}
 
 #define LOG_OPCODE_DST_ONLY(name) \
 	if(AtomBIOSDebugSettings::logOpcodes) { \
 		libatombios_printf_dbg("opcode " name "(%s[%02x] %s (savedVal: %x, val: %x, newVal: %x))\n", \
-			OpcodeArgEncodingToString(arg), dstIdx, SrcEncodingToString(attrByte.dstAlign), \
+			OpcodeArgEncodingToString(arg), arg == OpcodeArgEncoding::Reg ? dstIdx + _regBlock : dstIdx, SrcEncodingToString(attrByte.dstAlign), \
 			saved, val, newVal); \
 	}
 
@@ -25,4 +25,6 @@ if(AtomBIOSDebugSettings::logOpcodes) { \
 
 namespace AtomBIOSDebugSettings {
 	constexpr bool logOpcodes = true;
+	constexpr bool logIIOIndex = true;
+	constexpr bool logIIOOpcodes = true;
 }
