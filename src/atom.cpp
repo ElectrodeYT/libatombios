@@ -17,12 +17,11 @@ AtomBios::AtomBios(const std::vector<uint8_t>& data)
 
 	// Verify the ATI magic.
 	{
-		char* atiMagic = new char[11];
+		char atiMagic[11];
 		memcpy(atiMagic, _data.data() + 0x30, 10);
 		atiMagic[10] = '\0';
 		libatombios_printf_dbg("ATI Magic is %x\n", atiMagic);
 		assert(strcmp(atiMagic, " 761295520") == 0);
-		delete[] atiMagic;
 	}
 
 	_atomRomTableBase = read16(0x48);
@@ -37,12 +36,11 @@ AtomBios::AtomBios(const std::vector<uint8_t>& data)
 
 	// Verify the Atom ROM Table Magic.
 	{
-		char* atomRomTableMagic = new char[5];
+		char atomRomTableMagic[5];
 		memcpy(atomRomTableMagic, _atomRomTable.atomMagic, 4);
 		atomRomTableMagic[4] = '\0';
 		libatombios_printf_dbg("Atom ROM Table Magic is %s\n", atomRomTableMagic);
 		assert(strcmp(atomRomTableMagic, "ATOM") == 0);
-		delete[] atomRomTableMagic;
 	}
 
 	// Copy the data table.
