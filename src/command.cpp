@@ -1,6 +1,4 @@
-#include <cstdio>
-#include <cstring>
-#include <cassert>
+#include <assert.h>
 
 #include <libatombios/atom.hpp>
 #include <libatombios/atom-debug.hpp>
@@ -21,7 +19,7 @@ AtomBios::Command::Command(const std::vector<uint8_t>& data, int index, uint16_t
 	memcpy(_bytecode.data(), data.data() + offset + 0x6, bytecodeLength);
 
 	if(AtomBIOSDebugSettings::logCommandTableCreation) {
-		lilrad_log(DEBUG, "command %02x: workSpaceSize=%i, parameterSpaceSize=%i, total size=0x%x, bytecode size=0x%x\n",
+		lilrad_log(DEBUG, "command %02x: workSpaceSize=%i, parameterSpaceSize=%i, total size=0x%x, bytecode size=0x%zx\n",
 			_i, workSpaceSize, parameterSpaceSize, commonHeader.structureSize, bytecodeLength);
 	}
 }

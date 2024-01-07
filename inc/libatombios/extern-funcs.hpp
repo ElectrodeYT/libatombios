@@ -2,6 +2,19 @@
 
 #include <stdint.h>
 
+// Ensure libc functions are available
+#ifndef __STDC_HOSTED__
+
+__attribute__((nonnull(1, 2))) void *memcpy(void *dest, const void *src, size_t n);
+__attribute__((nonnull(1, 2))) int memcmp(const void *s1, const void *s2, size_t n);
+__attribute__((nonnull(1))) void *memset(void *s, int c, size_t n);
+__attribute__((nonnull(1, 2))) int strcmp(const char *s1, const char *s2);
+
+#else
+
+#include <string.h>
+
+#endif
 
 // libatombios uses the printf definitions from lilrad, in order to reduce the amount of proxy work that needs to be done.
 // This prevents multiple definitions of the functions from existing.
