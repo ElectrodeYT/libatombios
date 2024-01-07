@@ -18,7 +18,9 @@ atombios_sources = [
 
 inc = include_directories('inc')
 
-libatombios = shared_library('libatombios',
+build_atombios_tool = get_option('build_tool')
+
+libatombios = static_library('atombios',
     libatombios_sources,
     include_directories : inc,
     install : true
@@ -28,7 +30,10 @@ libatombios_dep = declare_dependency(
     link_with : libatombios
 )
 
-executable('atombios',
-    atombios_sources,
-    dependencies : [ libatombios_dep ]
-)
+if build_atombios_tool
+    executable('atombios',
+        atombios_sources,
+        dependencies : [ libatombios_dep ],
+        install : true
+    )
+endif
