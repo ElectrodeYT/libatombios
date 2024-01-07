@@ -1,5 +1,3 @@
-#include <assert.h>
-
 #include <libatombios/atom.hpp>
 #include <libatombios/atom-debug.hpp>
 #include <libatombios/extern-funcs.hpp>
