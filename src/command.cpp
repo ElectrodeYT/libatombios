@@ -3,8 +3,8 @@
 #include <libatombios/extern-funcs.hpp>
 
 AtomBios::Command::Command(const std::vector<uint8_t>& data, int index, uint16_t offset)
-: _i{index}, _offset{offset} {
-	memcpy(&commonHeader, data.data() + offset, sizeof(CommonHeader));
+: _i{index}, _offset{static_cast<uint16_t>(offset + 0x6)} {
+	memcpy(&commonHeader, data.data() + offset - 0x6, sizeof(CommonHeader));
 
 	uint16_t infoShort = static_cast<uint16_t>(data[offset + sizeof(CommonHeader)]) |
 			(static_cast<uint16_t>(data[offset + sizeof(CommonHeader) + 1]) << 8);
@@ -13,8 +13,6 @@ AtomBios::Command::Command(const std::vector<uint8_t>& data, int index, uint16_t
 	updatedByUtility = (infoShort >> 15) & 1;
 
 	size_t bytecodeLength = commonHeader.structureSize - 0x6;
-	_bytecode.resize(bytecodeLength);
-	memcpy(_bytecode.data(), data.data() + offset + 0x6, bytecodeLength);
 
 	if(AtomBIOSDebugSettings::logCommandTableCreation) {
 		lilrad_log(DEBUG, "command %02x: workSpaceSize=%i, parameterSpaceSize=%i, total size=0x%x, bytecode size=0x%zx\n",

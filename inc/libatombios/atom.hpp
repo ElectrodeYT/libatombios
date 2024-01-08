@@ -134,6 +134,11 @@ public:
 
 	struct Command {
 		CommonHeader commonHeader;
+
+		constexpr uint16_t bytecodeSize() {
+			return commonHeader.structureSize - 0x6;
+		}
+
 		// These are in bytes, but should always be multiples of a "long"
 		// (which, for AtomBios, is 32 bit)
 		uint8_t workSpaceSize;
@@ -144,9 +149,17 @@ public:
 
 		Command(const std::vector<uint8_t>& data, int index, uint16_t offset);
 
+		constexpr int i() {
+			return _i;
+		}
+
+		constexpr uint16_t offset() {
+			return _offset;
+		}
+
+	private:
 		int _i;
 		uint16_t _offset;
-		std::vector<uint8_t> _bytecode;
 	};
 
 	enum OpcodeArgEncoding {

@@ -6,12 +6,12 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 	assert(command->workSpaceSize % sizeof(uint32_t) == 0);
 	assert(command->parameterSpaceSize % sizeof(uint32_t) == 0);
 
-	lilrad_log(DEBUG, "running command %i\n", command->_i);
+	lilrad_log(DEBUG, "running command %i\n", command->i());
 
 	std::vector<uint32_t> workSpace;
 	workSpace.reserve(command->workSpaceSize / sizeof(uint32_t));
 
-	auto getParameterSpace = [&command, &params, &params_shift](uint32_t offset) -> uint32_t {
+	auto getParameterSpace = [&params, &params_shift](uint32_t offset) -> uint32_t {
 		assert(offset >= 0);
 		if(offset >= params.size()) {
 			params.resize(offset + 1);
@@ -19,7 +19,7 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 
 		return params[offset + params_shift];
 	};
-	auto setParameterSpace = [&command, &params, &params_shift](uint32_t offset, uint32_t data) {
+	auto setParameterSpace = [&params, &params_shift](uint32_t offset, uint32_t data) {
 		assert(offset >= 0);
 		if(offset >= params.size()) {
 			params.resize(offset + 1);
@@ -102,28 +102,28 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 
 	// Safely change the IP.
 	auto performJump = [&command, &ip](uint32_t bytecodeIP) {
-		assert((bytecodeIP - 0x6) < command->_bytecode.size());
+		assert((bytecodeIP - 0x6) < command->bytecodeSize());
 		assert(((int32_t)bytecodeIP - 0x6) > 0);
 		ip = bytecodeIP - 0x6;
 	};
 
 	// Safely consume command data.
-	auto consumeByte = [&command, &ip]() -> uint8_t {
-		assert(ip < command->_bytecode.size());
-		return command->_bytecode[ip++];
+	auto consumeByte = [this, &command, &ip]() -> uint8_t {
+		assert(ip < command->bytecodeSize());
+		return _data[command->offset() + ip++];
 	};
-	auto consumeShort = [&command, &ip]() -> uint16_t {
-		assert(ip < (command->_bytecode.size() - 1));
-		uint8_t a = command->_bytecode[ip++];
-		uint8_t b = command->_bytecode[ip++];
+	auto consumeShort = [this, &command, &ip]() -> uint16_t {
+		assert(ip < (command->bytecodeSize() - 1));
+		uint8_t a = _data[command->offset() + ip++];
+		uint8_t b = _data[command->offset() + ip++];
 		return static_cast<uint16_t>(a) | (static_cast<uint16_t>(b) << 8);
 	};
-	auto consumeLong = [&command, &ip]() -> uint32_t {
-		assert(ip < (command->_bytecode.size() - 3));
-		uint8_t a = command->_bytecode[ip++];
-		uint8_t b = command->_bytecode[ip++];
-		uint8_t c = command->_bytecode[ip++];
-		uint8_t d = command->_bytecode[ip++];
+	auto consumeLong = [this, &command, &ip]() -> uint32_t {
+		assert(ip < (command->bytecodeSize() - 3));
+		uint8_t a = _data[command->offset() + ip++];
+		uint8_t b = _data[command->offset() + ip++];
+		uint8_t c = _data[command->offset() + ip++];
+		uint8_t d = _data[command->offset() + ip++];
 		return static_cast<uint32_t>(a) | (static_cast<uint32_t>(b) << 8) | (static_cast<uint32_t>(c) << 16) | (static_cast<uint32_t>(d) << 24);
 	};
 
@@ -238,27 +238,27 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 		if(!count) {
 			return;
 		}
-		assert(ip < (command->_bytecode.size() - (count - 1)));
+		assert(ip < (command->bytecodeSize() - (count - 1)));
 		ip += count;
 	};
 
 	// Safely peek into command data.
-	auto peekByte = [&command, &ip]() -> uint8_t {
-		assert(ip < command->_bytecode.size());
-		return command->_bytecode[ip];
+	auto peekByte = [this, &command, &ip]() -> uint8_t {
+		assert(ip < command->bytecodeSize());
+		return _data[command->offset() + ip];
 	};
-	auto peekShort = [&command, &ip]() -> uint16_t {
-		assert(ip < (command->_bytecode.size() - 1));
-		uint8_t a = command->_bytecode[ip];
-		uint8_t b = command->_bytecode[ip + 1];
+	auto peekShort = [this, &command, &ip]() -> uint16_t {
+		assert(ip < (command->bytecodeSize() - 1));
+		uint8_t a = _data[command->offset() + ip];
+		uint8_t b = _data[command->offset() + ip + 1];
 		return static_cast<uint16_t>(a) | (static_cast<uint16_t>(b) << 8);
 	};
-	__attribute__((unused)) auto peekLong = [&command, &ip]() -> uint32_t {
-		assert(ip < (command->_bytecode.size() - 3));
-		uint8_t a = command->_bytecode[ip];
-		uint8_t b = command->_bytecode[ip + 1];
-		uint8_t c = command->_bytecode[ip + 2];
-		uint8_t d = command->_bytecode[ip + 3];
+	__attribute__((unused)) auto peekLong = [this, &command, &ip]() -> uint32_t {
+		assert(ip < (command->bytecodeSize() - 3));
+		uint8_t a = _data[command->offset() + ip];
+		uint8_t b = _data[command->offset() + ip + 1];
+		uint8_t c = _data[command->offset() + ip + 2];
+		uint8_t d = _data[command->offset() + ip + 3];
 		return static_cast<uint32_t>(a) | (static_cast<uint32_t>(b) << 8) | (static_cast<uint32_t>(c) << 16) | (static_cast<uint32_t>(d) << 24);
 	};
 
@@ -587,7 +587,7 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 		_divMulRemainder = remainder;
 	};
 
-	while(ip < command->_bytecode.size()) {
+	while(ip < command->bytecodeSize()) {
 		uint8_t opcode = consumeByte();
 		switch(opcode) {
 		/// Misc. opcodes
@@ -972,7 +972,7 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 		}
 
 		default: {
-			lilrad_log(ERROR, "unexpected opcode 0x%x, in command table 0x%x, ip %x (%x including header)\n", opcode, command->_i, ip - 1, ip + 6 - 1);
+			lilrad_log(ERROR, "unexpected opcode 0x%x, in command table 0x%x, ip %x (%x including header)\n", opcode, command->i(), ip - 1, ip + 6 - 1);
 			assert(false && "unexpected atom opcode");
 			__builtin_unreachable();
 		}
