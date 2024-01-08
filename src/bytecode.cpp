@@ -113,13 +113,13 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 		return _data[command->offset() + ip++];
 	};
 	auto consumeShort = [this, &command, &ip]() -> uint16_t {
-		assert(ip < (command->bytecodeSize() - 1));
+		assert(ip < static_cast<uint32_t>(command->bytecodeSize() - 1));
 		uint8_t a = _data[command->offset() + ip++];
 		uint8_t b = _data[command->offset() + ip++];
 		return static_cast<uint16_t>(a) | (static_cast<uint16_t>(b) << 8);
 	};
 	auto consumeLong = [this, &command, &ip]() -> uint32_t {
-		assert(ip < (command->bytecodeSize() - 3));
+		assert(ip < static_cast<uint32_t>(command->bytecodeSize() - 3));
 		uint8_t a = _data[command->offset() + ip++];
 		uint8_t b = _data[command->offset() + ip++];
 		uint8_t c = _data[command->offset() + ip++];
@@ -248,13 +248,13 @@ void AtomBios::_runBytecode(std::shared_ptr<Command> command, std::vector<uint32
 		return _data[command->offset() + ip];
 	};
 	auto peekShort = [this, &command, &ip]() -> uint16_t {
-		assert(ip < (command->bytecodeSize() - 1));
+		assert(ip < static_cast<uint32_t>(command->bytecodeSize() - 1));
 		uint8_t a = _data[command->offset() + ip];
 		uint8_t b = _data[command->offset() + ip + 1];
 		return static_cast<uint16_t>(a) | (static_cast<uint16_t>(b) << 8);
 	};
 	__attribute__((unused)) auto peekLong = [this, &command, &ip]() -> uint32_t {
-		assert(ip < (command->bytecodeSize() - 3));
+		assert(ip < static_cast<uint32_t>(command->bytecodeSize() - 3));
 		uint8_t a = _data[command->offset() + ip];
 		uint8_t b = _data[command->offset() + ip + 1];
 		uint8_t c = _data[command->offset() + ip + 2];
