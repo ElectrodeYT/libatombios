@@ -244,19 +244,19 @@ public:
 		SrcEncoding srcAlign;
 		OpcodeArgEncoding srcArg;
 
-		uint32_t swizleSrc(uint32_t in) {
+		constexpr uint32_t swizleSrc(uint32_t in) {
 			in &= atom_arg_mask[srcAlign];
 			in >>= atom_arg_shift[srcAlign];
 			return in;
 		}
 
-		uint32_t swizleDst(uint32_t in) {
+		constexpr uint32_t swizleDst(uint32_t in) {
 			in &= atom_arg_mask[dstAlign];
 			in >>= atom_arg_shift[dstAlign];
 			return in;
 		}
 
-		uint32_t combineSaved(uint32_t in, uint32_t saved) {
+		constexpr uint32_t combineSaved(uint32_t in, uint32_t saved) {
 			if(dstAlign == SrcEncoding::SrcDword) {
 				return in;
 			}
@@ -460,11 +460,11 @@ public:
 	void runCommand(CommandTables table, std::vector<uint32_t> params);
 
 private:
-	uint16_t read16(size_t offset) {
+	constexpr uint16_t read16(size_t offset) {
 		return static_cast<uint16_t>(_data[offset]) |
 			(static_cast<uint16_t>(_data[offset + 1]) << 8);
 	}
-	uint32_t read32(size_t offset) {
+	constexpr uint32_t read32(size_t offset) {
 		return read16(offset) | (static_cast<uint32_t>(read16(offset + 2)) << 16);
 	}
 
