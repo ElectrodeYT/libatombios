@@ -41,7 +41,8 @@ uint32_t AtomBios::_runIIO(uint32_t offset, uint32_t index, uint32_t data) {
 		lilrad_log(DEBUG, "  Running IIO table at %04x (offset from begin: 0x%04x)\n", offset, offset - _dataTable.indirectIOAccess);
 	}
 
-	while(true) {
+	bool run = true;
+	while(run) {
 		uint8_t opcode = _data[ip];
 
 		// START should not be encountered inside of a IIO function
@@ -104,6 +105,7 @@ uint32_t AtomBios::_runIIO(uint32_t offset, uint32_t index, uint32_t data) {
 			if(AtomBIOSDebugSettings::logIIOOpcodes) {
 				lilrad_log(DEBUG, "  IIO: opcode END()\n");
 			}
+			run = false;
 			break;
 		}
 
