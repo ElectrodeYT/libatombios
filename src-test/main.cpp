@@ -7,6 +7,13 @@
 #include <libatombios/atom.hpp>
 #include <libatombios/extern-funcs.hpp>
 
+#include <map>
+
+std::map<uint32_t, uint32_t> readRegisterLog;
+std::map<uint32_t, uint32_t> writeRegisterLog;
+
+constexpr bool suppressLogs = false;
+
 const char* logTypeToString(enum LilradLogType type) {
 	switch(type) {
 	case DEBUG:
@@ -28,6 +35,11 @@ extern "C" void lilrad_log(enum LilradLogType type, const char* format, ...) {
 	va_list arglist;
 	va_start(arglist, format);
 
+	if(suppressLogs) {
+		va_end(arglist);
+		return;
+	}
+
 	static char buffer[1024];
 	strcpy(buffer, logTypeToString(type));
 	strncat(buffer, format, 1023 - strlen(logTypeToString(type)));
@@ -37,10 +49,18 @@ extern "C" void lilrad_log(enum LilradLogType type, const char* format, ...) {
 }
 
 extern "C" [[gnu::weak]] void libatombios_card_reg_write(uint32_t reg, uint32_t val) {
-	printf("aaa: reg=%x, val=%x\n", reg, val);
+	if(readRegisterLog.count(reg) == 0) {
+		writeRegisterLog[reg] = 1;
+	} else {
+		writeRegisterLog[reg]++;
+	}
+
+	if(!suppressLogs) {
+		printf("aaa: reg=%x, val=%x\n", reg, val);
+	}
 }
 extern "C" [[gnu::weak]] uint32_t libatombios_card_reg_read(uint32_t reg) {
-	uint32_t val = 0xAA;
+	uint32_t val = 0xAA; //0xAA;
 
 	if(reg == 0x1b9c) {
 		val = 0xFF01FFFF;
@@ -51,9 +71,21 @@ extern "C" [[gnu::weak]] uint32_t libatombios_card_reg_read(uint32_t reg) {
 		val = 0x00010000;
 	} else if(reg == 0x4bcb) {
 		val = 0x00010000;
+	} else if(reg == 0x4ccc) {
+		val = 0x00010000;
+	} else if(reg == 0x83) {
+		exit(0);
 	}
 
-	printf("aaa: reg=%x, val=%x\n", reg, val);
+	if(readRegisterLog.count(reg) == 0) {
+		readRegisterLog[reg] = 1;
+	} else {
+		readRegisterLog[reg]++;
+	}
+
+	if(!suppressLogs) {
+		printf("aaa: reg=%x, val=%x\n", reg, val);
+	}
 	return val;
 }
 extern "C" [[gnu::weak]] void libatombios_card_mc_write(uint32_t reg, uint32_t val) {
@@ -100,4 +132,14 @@ int main(int argc, char** argv) {
 	//std::vector<uint32_t> params = {0xAABBCCDD, 0xEEFF0011};
 	std::vector<uint32_t> params = {0, 0};
 	atomBios.runCommand(AtomBios::CommandTables::ASIC_Init, params);
+
+	std::cout << "Read register log:" << std::endl;
+	for(auto const& [reg, count] : readRegisterLog) {
+		std::cout << std::hex << reg << ": " << std::dec << count << std::endl;
+	}
+
+	std::cout << "Write register log:" << std::endl;
+	for(auto const& [reg, count] : writeRegisterLog) {
+		std::cout << std::hex << reg << ": " << std::dec << count << std::endl;
+	}
 }
