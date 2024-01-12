@@ -9,7 +9,8 @@ libatombios_sources = [
     'src/bytecode.cpp',
     'src/command.cpp',
     'src/dumpToConsoles.cpp',
-    'src/iio.cpp'
+    'src/iio.cpp',
+    'src/mem.cpp'
 ]
 
 atombios_sources = [
@@ -20,11 +21,19 @@ inc = include_directories('inc')
 
 build_atombios_tool = get_option('build_tools')
 
+# Dependencies
+frigg = dependency('frigg',
+    default_options : [ 'frigg_no_install=true' ],
+    fallback: ['frigg', 'frigg_dep'],
+)
+
 libatombios = static_library('atombios',
     libatombios_sources,
     include_directories : inc,
     install : true,
-    pic : get_option('pic')
+    pic : get_option('pic'),
+    dependencies : [ frigg ],
+    cpp_args : ['-ffreestanding'],
 )
 libatombios_dep = declare_dependency(
     include_directories : inc,

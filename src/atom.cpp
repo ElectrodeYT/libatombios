@@ -2,8 +2,37 @@
 #include <libatombios/atom-debug.hpp>
 #include <libatombios/extern-funcs.hpp>
 
-AtomBios::AtomBios(const std::vector<uint8_t>& data)
-: _data{data} {
+#include "atom-private.hpp"
+
+AtomBios::AtomBios(uint8_t* data, size_t size) {
+	//_impl = static_cast<AtomBiosImpl*>(lilrad_alloc(sizeof(AtomBiosImpl)));
+	_impl = new AtomBiosImpl(data, size);
+} 
+
+void AtomBios::runCommand(CommandTables table, uint32_t* params, size_t size) {
+	libatombios_vector<uint32_t> paramVector;
+	paramVector.resize(size);
+	memcpy(paramVector.data(), params, size * sizeof(uint32_t));
+
+	_impl->runCommand(table, paramVector);
+
+	memcpy(params, paramVector.data(), size * sizeof(uint32_t));
+}
+
+const uint32_t AtomBios::maxPSIndex() {
+	return _impl->maxPSIndex();
+}
+const uint32_t AtomBios::maxWSIndex() {
+	return _impl->maxWSIndex();
+}
+
+AtomBiosImpl::AtomBiosImpl(uint8_t* data, size_t size) {
+	// Copy the bios data.
+	{
+		_data.resize(size);
+		memcpy(_data.data(), data, size);
+	}
+
 	// Verify the BIOS magic.
 	{
 		uint16_t biosMagic = read16(0);
@@ -50,7 +79,7 @@ AtomBios::AtomBios(const std::vector<uint8_t>& data)
 	_indexIIO(_dataTable.indirectIOAccess + 4);
 }
 
-void AtomBios::copyStructure(void* dest, size_t offset, size_t maxSize) {
+void AtomBiosImpl::copyStructure(void* dest, size_t offset, size_t maxSize) {
 	size_t commonHeaderSize = read16(offset);
 	size_t copySize = commonHeaderSize < maxSize ? commonHeaderSize : maxSize;
 	
@@ -62,7 +91,7 @@ void AtomBios::copyStructure(void* dest, size_t offset, size_t maxSize) {
 }
 
 /// TODO: this is not the way we should do this lol
-uint32_t AtomBios::_doIORead(uint32_t reg) {
+uint32_t AtomBiosImpl::_doIORead(uint32_t reg) {
 	switch(_ioMode) {
 	case IOMode::MM: return libatombios_card_reg_read(reg);
 
@@ -84,7 +113,7 @@ uint32_t AtomBios::_doIORead(uint32_t reg) {
 	return 0;
 }
 
-void AtomBios::_doIOWrite(uint32_t reg, uint32_t val) {
+void AtomBiosImpl::_doIOWrite(uint32_t reg, uint32_t val) {
 	switch(_ioMode) {
 	case IOMode::MM:
 		libatombios_card_reg_write(reg, val);
@@ -103,6 +132,10 @@ void AtomBios::_doIOWrite(uint32_t reg, uint32_t val) {
 	}
 }
 
+// TODO: make this more pretty
+//   Putting them into the class definiton makes the class a bit more ugly,
+//   but having them not be namespaced in any way also isn't the best.
+
 const char* opcodeArgEncodingStrings[] = {
 	"REG",
 	"PS",
@@ -114,7 +147,7 @@ const char* opcodeArgEncodingStrings[] = {
 	"MC"
 };
 
-const char* AtomBios::OpcodeArgEncodingToString(OpcodeArgEncoding arg) {
+const char* OpcodeArgEncodingToString(OpcodeArgEncoding arg) {
 	assert(arg >= OpcodeArgEncoding::Reg);
 	assert(arg <= OpcodeArgEncoding::MC);
 	
@@ -132,7 +165,7 @@ const char* srcEncodingStrings[] = {
 	"[X---]"
 };
 
-const char* AtomBios::SrcEncodingToString(SrcEncoding align) {
+const char* SrcEncodingToString(SrcEncoding align) {
 	assert(align >= SrcEncoding::SrcDword);
 	assert(align <= SrcEncoding::SrcByte24);
 	

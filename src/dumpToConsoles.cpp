@@ -1,7 +1,9 @@
 #include <libatombios/atom.hpp>
 #include <libatombios/extern-funcs.hpp>
 
-void AtomBios::CommonHeader::dumpToConsole(bool header) {
+#include "atom-private.hpp"
+
+void AtomBiosImpl::CommonHeader::dumpToConsole(bool header) {
 	if(header) {
 		lilrad_log(DEBUG, "CommonHeader dump:");
 	}
@@ -10,7 +12,7 @@ void AtomBios::CommonHeader::dumpToConsole(bool header) {
 	lilrad_log(DEBUG, "  commonHeader.tableContentRevision = %i\n", tableContentRevision);
 }
 
-void AtomBios::AtomRomTable::dumpToConsole() {
+void AtomBiosImpl::AtomRomTable::dumpToConsole() {
 	lilrad_log(DEBUG, "AtomRomTable dump:\n");
 	commonHeader.dumpToConsole();
 	lilrad_log(DEBUG, "  biosRuntimeSegmentAddress = 0x%x\n", biosRuntimeSegmentAddress);

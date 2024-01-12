@@ -2,9 +2,13 @@
 #include <libatombios/atom-debug.hpp>
 #include <libatombios/extern-funcs.hpp>
 
+#include "atom-private.hpp"
+
+#include <span>
+
 static const int iioInstructionLengths[] = { 1, 2, 3, 3, 3, 3, 4, 4, 4, 3 };
 
-void AtomBios::_indexIIO(uint32_t base) {
+void AtomBiosImpl::_indexIIO(uint32_t base) {
 	uint32_t ptr = base;
 	_iioIndexes.resize(255, 0);
 
@@ -28,7 +32,7 @@ void AtomBios::_indexIIO(uint32_t base) {
 	}
 }
 
-uint32_t AtomBios::_runIIO(uint32_t offset, uint32_t index, uint32_t data) {
+uint32_t AtomBiosImpl::_runIIO(uint32_t offset, uint32_t index, uint32_t data) {
 	uint32_t temp = 0xCDCDCDCD;
 	uint32_t ip = offset;
 

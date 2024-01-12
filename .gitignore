@@ -1,3 +1,4 @@
 .cache
 *.rom
 
+subprojects/frigg/

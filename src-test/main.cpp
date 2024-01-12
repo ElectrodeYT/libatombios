@@ -8,6 +8,7 @@
 #include <libatombios/extern-funcs.hpp>
 
 #include <map>
+#include <vector>
 
 std::map<uint32_t, uint32_t> readRegisterLog;
 std::map<uint32_t, uint32_t> writeRegisterLog;
@@ -46,6 +47,14 @@ extern "C" void lilrad_log(enum LilradLogType type, const char* format, ...) {
 	vprintf(buffer, arglist);
 
 	va_end(arglist);
+}
+
+extern "C" void* lilrad_alloc(size_t size) {
+	return malloc(size);	
+}
+
+extern "C" void lilrad_free(void* ptr) {
+	free(ptr);
 }
 
 extern "C" [[gnu::weak]] void libatombios_card_reg_write(uint32_t reg, uint32_t val) {
@@ -127,11 +136,11 @@ int main(int argc, char** argv) {
 	fileStream.read((char*)data.data(), fileSize);
 	fileStream.close();
 
-	AtomBios atomBios(data);
+	AtomBios atomBios(data.data(), data.size());
 	
 	//std::vector<uint32_t> params = {0xAABBCCDD, 0xEEFF0011};
 	std::vector<uint32_t> params = {0, 0};
-	atomBios.runCommand(AtomBios::CommandTables::ASIC_Init, params);
+	atomBios.runCommand(AtomBios::CommandTables::ASIC_Init, params.data(), params.size());
 
 	std::cout << "Read register log:" << std::endl;
 	for(auto const& [reg, count] : readRegisterLog) {
@@ -142,4 +151,7 @@ int main(int argc, char** argv) {
 	for(auto const& [reg, count] : writeRegisterLog) {
 		std::cout << std::hex << reg << ": " << std::dec << count << std::endl;
 	}
+
+	std::cout << "psMax: " << atomBios.maxPSIndex() << std::endl;
+	std::cout << "wsMax: " << atomBios.maxWSIndex() << std::endl;
 }

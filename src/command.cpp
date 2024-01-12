@@ -1,8 +1,10 @@
-#include <libatombios/atom.hpp>
+#include <cstdint>
 #include <libatombios/atom-debug.hpp>
 #include <libatombios/extern-funcs.hpp>
 
-AtomBios::Command::Command(const std::vector<uint8_t>& data, int index, uint16_t offset)
+#include "atom-private.hpp"
+
+AtomBiosImpl::Command::Command(const libatombios_vector<uint8_t>& data, int index, uint16_t offset)
 : _i{index}, _offset{static_cast<uint16_t>(offset + 0x6)} {
 	memcpy(&commonHeader, data.data() + offset - 0x6, sizeof(CommonHeader));
 
@@ -18,9 +20,15 @@ AtomBios::Command::Command(const std::vector<uint8_t>& data, int index, uint16_t
 		lilrad_log(DEBUG, "command %02x: workSpaceSize=%i, parameterSpaceSize=%i, total size=0x%x, bytecode size=0x%zx\n",
 			_i, workSpaceSize, parameterSpaceSize, commonHeader.structureSize, bytecodeLength);
 	}
+
+	_exists = true;
 }
 
-void AtomBios::CommandTable::readCommands(const std::vector<uint8_t>& data, uint16_t offset) {
+AtomBiosImpl::CommandTable::CommandTable()
+: commands{frg::hash<int>()} {
+}
+
+void AtomBiosImpl::CommandTable::readCommands(const libatombios_vector<uint8_t>& data, uint16_t offset) {
 	memcpy(&commonHeader, data.data() + offset, sizeof(CommonHeader));
 
 	size_t offsetIntoTable = offset + sizeof(CommonHeader);
@@ -28,12 +36,12 @@ void AtomBios::CommandTable::readCommands(const std::vector<uint8_t>& data, uint
 		uint16_t commandOffset = static_cast<uint16_t>(data[offsetIntoTable]) |
 			(static_cast<uint16_t>(data[offsetIntoTable + 1]) << 8);
 		if(commandOffset) {
-			commands[i] = std::make_shared<Command>(data, i, commandOffset);
+			commands[i] = Command(data, i, commandOffset);
 		}
 	}
 }
 
-void AtomBios::runCommand(CommandTables table, std::vector<uint32_t> params) {
-	assert(_commandTable.commands[table]);
+void AtomBiosImpl::runCommand(AtomBios::CommandTables table, libatombios_vector<uint32_t> params) {
+	assert(_commandTable.commands[table].exists());
 	_runBytecode(_commandTable.commands[table], params, 0);
 }
