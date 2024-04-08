@@ -27,6 +27,8 @@ frigg = dependency('frigg',
     fallback: ['frigg', 'frigg_dep'],
 )
 
+cli11 = dependency('CLI11')
+
 libatombios = static_library('atombios',
     libatombios_sources,
     include_directories : inc,
@@ -43,7 +45,7 @@ libatombios_dep = declare_dependency(
 if build_atombios_tool
     executable('atombios',
         atombios_sources,
-        dependencies : [ libatombios_dep ],
+        dependencies : [ libatombios_dep, cli11 ],
         install : true
     )
 endif

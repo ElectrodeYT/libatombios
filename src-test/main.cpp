@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <string.h>
 
+#include <CLI/CLI.hpp>
 #include <libatombios/atom.hpp>
 #include <libatombios/extern-funcs.hpp>
 
@@ -122,36 +123,44 @@ extern "C" [[gnu::weak]] void libatombios_delay_milliseconds(uint32_t millisecon
 }
 
 int main(int argc, char** argv) {
-	if(argc != 2) {
-		std::cerr << "TODO: actual argument parsing lol" << std::endl;
-		exit(1);
-	}
+	std::string filename{};
+	bool asic_init = false;
 
-	std::ifstream fileStream(argv[1], std::ios::in | std::ios::binary | std::ios::ate);
+	CLI::App app{"atombios"};
+	argv = app.ensure_utf8(argv);
+
+	app.add_option("input", filename)->required();
+	app.add_flag("-a,--asic_init", asic_init, "Dump ASIC_Init");
+
+	CLI11_PARSE(app, argc, argv);
+
+	std::ifstream fileStream(filename, std::ios::in | std::ios::binary | std::ios::ate);
 	size_t fileSize = fileStream.tellg();
 	fileStream.seekg(0, std::ios::beg);
 
-	std::vector<uint8_t> data;
-	data.resize(fileSize);
-	fileStream.read((char*)data.data(), fileSize);
-	fileStream.close();
+	if(asic_init) {
+		std::vector<uint8_t> data;
+		data.resize(fileSize);
+		fileStream.read((char*)data.data(), fileSize);
+		fileStream.close();
 
-	AtomBios atomBios(data.data(), data.size());
-	
-	//std::vector<uint32_t> params = {0xAABBCCDD, 0xEEFF0011};
-	std::vector<uint32_t> params = {0, 0};
-	atomBios.runCommand(AtomBios::CommandTables::ASIC_Init, params.data(), params.size());
+		AtomBios atomBios(data.data(), data.size());
 
-	std::cout << "Read register log:" << std::endl;
-	for(auto const& [reg, count] : readRegisterLog) {
-		std::cout << std::hex << reg << ": " << std::dec << count << std::endl;
+		//std::vector<uint32_t> params = {0xAABBCCDD, 0xEEFF0011};
+		std::vector<uint32_t> params = {0, 0};
+		atomBios.runCommand(AtomBios::CommandTables::ASIC_Init, params.data(), params.size());
+
+		std::cout << "Read register log:" << std::endl;
+		for(auto const& [reg, count] : readRegisterLog) {
+			std::cout << std::hex << reg << ": " << std::dec << count << std::endl;
+		}
+
+		std::cout << "Write register log:" << std::endl;
+		for(auto const& [reg, count] : writeRegisterLog) {
+			std::cout << std::hex << reg << ": " << std::dec << count << std::endl;
+		}
+
+		std::cout << "psMax: " << atomBios.maxPSIndex() << std::endl;
+		std::cout << "wsMax: " << atomBios.maxWSIndex() << std::endl;
 	}
-
-	std::cout << "Write register log:" << std::endl;
-	for(auto const& [reg, count] : writeRegisterLog) {
-		std::cout << std::hex << reg << ": " << std::dec << count << std::endl;
-	}
-
-	std::cout << "psMax: " << atomBios.maxPSIndex() << std::endl;
-	std::cout << "wsMax: " << atomBios.maxWSIndex() << std::endl;
 }
